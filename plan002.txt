@@ -1,0 +1,180 @@
+以下の設計書に基づいて、React Native（Expo）で動作し、
+App Store / Google Play にリリース可能な
+ジュース記録アプリのコード一式を生成してください。
+
+
+ジュース記録アプリ（バーコード読取）リリース対応・完全設計書
+1. アプリ概要
+スマホ内蔵カメラでバーコード（JANコード）を読み取り、
+飲んだジュースを記録するアプリ。
+
+バーコード → JANコード取得
+
+JANコード → 商品情報APIで検索
+
+商品名・画像・メーカーを自動取得
+
+飲んだ日時・評価・メモを保存
+
+履歴一覧・詳細画面で閲覧
+
+オフラインでも履歴閲覧可能（SQLite）
+
+2. 対応プラットフォーム
+iOS（App Store 審査対応）
+
+Android（Google Play 審査対応）
+
+3. 開発環境
+React Native（Expo）
+
+TypeScript
+
+UI ライブラリ：React Native Paper
+
+カメラ：react-native-vision-camera
+
+バーコード：vision-camera-code-scanner
+
+DB：SQLite（expo-sqlite）
+
+画面遷移：React Navigation
+
+4. 必要な権限（リリース必須）
+iOS（Info.plist）
+コード
+NSCameraUsageDescription
+→ "バーコードを読み取るためにカメラを使用します。"
+Android（AndroidManifest.xml）
+コード
+<uses-permission android:name="android.permission.CAMERA" />
+※ Expo の場合は app.json で設定
+
+5. 主要機能（MVP）
+5.1 バーコード読み取り
+アプリ内カメラを起動
+
+EAN-13 / EAN-8 をリアルタイム検出
+
+検出後、自動で商品検索画面へ遷移
+
+5.2 商品情報取得（楽天API）
+JANコードを keyword にして検索
+
+取得項目：
+
+商品名
+
+商品画像URL
+
+メーカー名
+
+商品URL（任意）
+
+5.3 記録保存（SQLite）
+保存データ：
+
+項目	型	説明
+id	number	主キー
+jan_code	string	JANコード
+name	string	商品名
+image_url	string	商品画像
+maker	string	メーカー
+rating	number	★1〜5
+memo	string	メモ
+created_at	string	飲んだ日時
+
+
+5.4 履歴一覧
+サムネイル画像
+
+商品名
+
+飲んだ日時
+
+タップで詳細へ
+
+5.5 詳細画面
+商品画像
+
+商品名
+
+メーカー
+
+評価
+
+メモ
+
+飲んだ日時
+
+6. 画面構成（UIフロー）
+コード
+[ホーム画面]
+   ↓
+[バーコード読み取り画面]
+   ↓ JANコード検出
+[商品情報確認画面]
+   ↓ 保存
+[履歴一覧画面]
+   ↓
+[詳細画面]
+7. API 仕様（楽天商品検索API）
+エンドポイント
+コード
+https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601
+パラメータ
+applicationId: 楽天アプリID
+
+keyword: JANコード
+
+hits: 1
+
+8. SQLite テーブル定義
+sql
+CREATE TABLE IF NOT EXISTS drinks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jan_code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  image_url TEXT,
+  maker TEXT,
+  rating INTEGER,
+  memo TEXT,
+  created_at TEXT NOT NULL
+);
+9. コンポーネント構成
+App.tsx（ナビゲーション）
+
+screens/BarcodeScannerScreen.tsx
+
+screens/SearchResultScreen.tsx
+
+screens/HistoryListScreen.tsx
+
+screens/DetailScreen.tsx
+
+lib/db.ts（SQLite）
+
+lib/api.ts（楽天API）
+
+10. リリース時の注意点（重要）
+iOS 審査で落ちないために
+カメラ使用理由を明確に書く（上記の文言でOK）
+
+バーコード読み取り画面で「カメラ許可ダイアログ」が出るようにする
+
+許可拒否された場合の fallback UI を用意する
+→ 「設定からカメラを許可してください」
+
+Android 審査で落ちないために
+カメラ権限の runtime permission を実装
+
+クラッシュしないように例外処理を入れる
+
+要件：
+- TypeScript
+- Expo
+- react-native-vision-camera でバーコード読み取り
+- 楽天APIで商品情報取得
+- SQLite に保存
+- React Navigation で画面遷移
+- iOS/Android のカメラ権限を正しく実装

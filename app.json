@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "のみものずかん",
+    "slug": "nominomono-zukan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.asakura.nominomonozukan",
+      "infoPlist": {
+        "NSCameraUsageDescription": "バーコードを読み取るためにカメラを使用します。"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B35"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "package": "com.asakura.nominomonozukan"
+    },
+    "plugins": [
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "バーコードを読み取るためにカメラを使用します。",
+          "enableCodeScanner": true
+        }
+      ]
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1c3a1dac-7375-4357-b46b-e927552d2dbf"
+      }
+    }
+  }
+}
