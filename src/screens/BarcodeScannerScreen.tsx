@@ -3,7 +3,7 @@ import { StyleSheet, View, Linking, Alert } from 'react-native';
 import { Text, Button, ActivityIndicator, IconButton } from 'react-native-paper';
 import {
   Camera,
-  CameraDevice,
+  useCameraDevice,
   useCodeScanner,
   useCameraPermission,
 } from 'react-native-vision-camera';
@@ -19,26 +19,25 @@ export default function BarcodeScannerScreen() {
   const navigation = useNavigation<Nav>();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [device, setDevice] = useState<CameraDevice | undefined>();
-  const [deviceSearched, setDeviceSearched] = useState(false);
+  const device = useCameraDevice('back');
   const isScanning = useRef(false);
   const [isActive, setIsActive] = useState(true);
   const [permissionResolved, setPermissionResolved] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
+  // パーミッション取得後にデバイスが見つかるまで最大5秒待つ
+  const [deviceTimeout, setDeviceTimeout] = useState(false);
 
   useEffect(() => {
     requestPermission().then(() => setPermissionResolved(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // パーミッション取得後にデバイスを同期的に取得
   useEffect(() => {
-    if (!hasPermission) return;
-    const devices = Camera.getAvailableCameraDevices();
-    const back = devices.find((d) => d.position === 'back');
-    setDevice(back);
-    setDeviceSearched(true);
-  }, [hasPermission]);
+    if (!hasPermission || device) return;
+    setDeviceTimeout(false);
+    const timer = setTimeout(() => setDeviceTimeout(true), 5000);
+    return () => clearTimeout(timer);
+  }, [hasPermission, device]);
 
   useEffect(() => {
     setIsActive(isFocused);
@@ -125,7 +124,7 @@ export default function BarcodeScannerScreen() {
   }
 
   if (!device) {
-    if (!deviceSearched) {
+    if (!deviceTimeout) {
       return (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
