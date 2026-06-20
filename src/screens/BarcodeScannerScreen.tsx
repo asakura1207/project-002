@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Linking } from 'react-native';
-import { Text, Button, ActivityIndicator } from 'react-native-paper';
+import { StyleSheet, View, Linking, Alert } from 'react-native';
+import { Text, Button, ActivityIndicator, IconButton } from 'react-native-paper';
 import {
   Camera,
   CameraDevice,
   useCodeScanner,
   useCameraPermission,
 } from 'react-native-vision-camera';
+import { BarCodeScanner } from 'expo-barcode-scanner';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
@@ -22,23 +24,22 @@ export default function BarcodeScannerScreen() {
   const isScanning = useRef(false);
   const [isActive, setIsActive] = useState(true);
   const [permissionResolved, setPermissionResolved] = useState(false);
+  const [isPickingImage, setIsPickingImage] = useState(false);
 
   useEffect(() => {
     requestPermission().then(() => setPermissionResolved(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // パーミッション取得後にデバイスリストを明示的に取得
+  // パーミッション取得後にデバイスを同期的に取得
   useEffect(() => {
     if (!hasPermission) return;
-    Camera.getAvailableCameraDevices().then((devices) => {
-      const back = devices.find((d) => d.position === 'back');
-      setDevice(back);
-      setDeviceSearched(true);
-    });
+    const devices = Camera.getAvailableCameraDevices();
+    const back = devices.find((d) => d.position === 'back');
+    setDevice(back);
+    setDeviceSearched(true);
   }, [hasPermission]);
 
-  // 画面を離れたときスキャンを止め、戻ってきたときロックを解除
   useEffect(() => {
     setIsActive(isFocused);
     if (isFocused) {
@@ -62,7 +63,34 @@ export default function BarcodeScannerScreen() {
     ),
   });
 
-  // 権限ダイアログ表示中 or 初回確認中
+  const pickImageAndScan = async () => {
+    setIsPickingImage(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        const scanned = await BarCodeScanner.scanFromURLAsync(uri, [
+          BarCodeScanner.Constants.BarCodeType.ean13,
+          BarCodeScanner.Constants.BarCodeType.ean8,
+        ]);
+
+        if (scanned.length > 0) {
+          navigation.navigate('SearchResult', { janCode: scanned[0].data });
+        } else {
+          Alert.alert('読み取り失敗', '画像からバーコードを検出できませんでした。');
+        }
+      }
+    } catch {
+      Alert.alert('エラー', '画像の読み込みに失敗しました。');
+    } finally {
+      setIsPickingImage(false);
+    }
+  };
+
   if (!permissionResolved) {
     return (
       <View style={styles.center}>
@@ -72,7 +100,6 @@ export default function BarcodeScannerScreen() {
     );
   }
 
-  // 権限が拒否された場合のフォールバック UI
   if (!hasPermission) {
     return (
       <View style={styles.center}>
@@ -90,11 +117,7 @@ export default function BarcodeScannerScreen() {
         >
           設定からカメラを許可する
         </Button>
-        <Button
-          mode="text"
-          onPress={() => navigation.goBack()}
-          style={{ marginTop: 8 }}
-        >
+        <Button mode="text" onPress={() => navigation.goBack()} style={{ marginTop: 8 }}>
           戻る
         </Button>
       </View>
@@ -129,7 +152,6 @@ export default function BarcodeScannerScreen() {
         codeScanner={codeScanner}
       />
 
-      {/* スキャンガイドオーバーレイ */}
       <View style={styles.overlay}>
         <View style={styles.overlayTop} />
         <View style={styles.middleRow}>
@@ -144,8 +166,24 @@ export default function BarcodeScannerScreen() {
         </View>
         <View style={styles.overlayBottom}>
           <Text style={styles.hint}>バーコードを枠内に合わせてください</Text>
+          <IconButton
+            icon="image"
+            iconColor="#fff"
+            size={32}
+            style={styles.galleryButton}
+            onPress={pickImageAndScan}
+            disabled={isPickingImage}
+          />
+          <Text style={styles.galleryLabel}>写真から読み取る</Text>
         </View>
       </View>
+
+      {isPickingImage && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>スキャン中...</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -210,11 +248,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
-    paddingTop: 24,
+    paddingTop: 16,
   },
   hint: {
     color: '#fff',
     fontSize: 14,
+  },
+  galleryButton: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  galleryLabel: {
+    color: '#fff',
+    fontSize: 12,
+    marginTop: 4,
   },
   corner: {
     position: 'absolute',
@@ -245,5 +292,16 @@ const styles = StyleSheet.create({
     right: 0,
     borderBottomWidth: CORNER_THICKNESS,
     borderRightWidth: CORNER_THICKNESS,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 12,
+    fontSize: 16,
   },
 });
