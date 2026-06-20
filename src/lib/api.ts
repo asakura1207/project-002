@@ -7,6 +7,7 @@ const ENDPOINT = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/2
 export async function searchByJanCode(janCode: string): Promise<RakutenProduct | null> {
   const params = new URLSearchParams({
     applicationId: APP_ID,
+    accessKey: ACCESS_KEY,
     keyword: janCode,
     hits: '1',
     format: 'json',
@@ -14,11 +15,13 @@ export async function searchByJanCode(janCode: string): Promise<RakutenProduct |
 
   const response = await fetch(`${ENDPOINT}?${params.toString()}`, {
     headers: {
-      Authorization: `Bearer ${ACCESS_KEY}`,
+      accessKey: ACCESS_KEY,
     },
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    console.error(`API error: ${response.status}`, body);
     throw new Error(`API error: ${response.status}`);
   }
 

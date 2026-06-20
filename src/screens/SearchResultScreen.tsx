@@ -27,6 +27,7 @@ export default function SearchResultScreen() {
   const { janCode } = params;
 
   const [status, setStatus] = useState<Status>('loading');
+  const [errorDetail, setErrorDetail] = useState('');
   const [product, setProduct] = useState<RakutenProduct | null>(null);
   const [name, setName] = useState('');
   const [maker, setMaker] = useState('');
@@ -46,7 +47,8 @@ export default function SearchResultScreen() {
       } else {
         setStatus('not_found');
       }
-    } catch {
+    } catch (e) {
+      setErrorDetail(e instanceof Error ? e.message : String(e));
       setStatus('error');
     }
   }, [janCode]);
@@ -104,7 +106,7 @@ export default function SearchResultScreen() {
           商品の取得に失敗しました
         </Text>
         <Text variant="bodySmall" style={{ color: '#666', marginTop: 8 }}>
-          ネットワーク接続を確認してください。
+          {errorDetail || 'ネットワーク接続を確認してください。'}
         </Text>
         <Button mode="contained" onPress={fetchProduct} style={{ marginTop: 24 }}>
           再試行
