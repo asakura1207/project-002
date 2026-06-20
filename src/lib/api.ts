@@ -1,8 +1,42 @@
 import { RakutenProduct } from '../types';
 
-const YAHOO_APP_ID = '32MpLkyxT8';
-const YAHOO_ENDPOINT = 'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch';
+const YAHOO_CLIENT_ID = 'SCz0yqZn1S';
+const YAHOO_CLIENT_SECRET = 'rSyNS5XFJB7H5Twr1SmZ2RXxiD0Pf9zRNYt8Nd6Y';
+const YAHOO_TOKEN_ENDPOINT = 'https://auth.login.yahoo.co.jp/yconnect/v2/token';
+const YAHOO_SHOPPING_ENDPOINT =
+  'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch';
 const OFF_ENDPOINT = 'https://world.openfoodfacts.org/api/v0/product';
+
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getYahooToken(): Promise<string | null> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+
+  const basic = btoa(`${YAHOO_CLIENT_ID}:${YAHOO_CLIENT_SECRET}`);
+  const res = await fetch(YAHOO_TOKEN_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.warn('Yahoo token error:', res.status, body);
+    return null;
+  }
+
+  const data = await res.json();
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  };
+  return cachedToken.token;
+}
 
 async function searchOpenFoodFacts(janCode: string): Promise<RakutenProduct | null> {
   const res = await fetch(`${OFF_ENDPOINT}/${janCode}.json`, {
@@ -26,16 +60,17 @@ async function searchOpenFoodFacts(janCode: string): Promise<RakutenProduct | nu
 }
 
 async function searchYahoo(janCode: string): Promise<RakutenProduct | null> {
-  const params = new URLSearchParams({
-    appid: YAHOO_APP_ID,
-    jan_code: janCode,
-    results: '1',
+  const token = await getYahooToken();
+  if (!token) return null;
+
+  const params = new URLSearchParams({ jan_code: janCode, results: '1' });
+  const res = await fetch(`${YAHOO_SHOPPING_ENDPOINT}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 
-  const res = await fetch(`${YAHOO_ENDPOINT}?${params.toString()}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.warn('Yahoo API error:', res.status, body);
+    console.warn('Yahoo Shopping error:', res.status, body);
     return null;
   }
 
@@ -53,11 +88,9 @@ async function searchYahoo(janCode: string): Promise<RakutenProduct | null> {
 }
 
 export async function searchByJanCode(janCode: string): Promise<RakutenProduct | null> {
-  // まずOpen Food Factsで検索
   const offResult = await searchOpenFoodFacts(janCode);
   if (offResult) return offResult;
 
-  // 見つからなければYahoo!ショッピングで検索
   const yahooResult = await searchYahoo(janCode);
   if (yahooResult) return yahooResult;
 
