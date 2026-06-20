@@ -3,7 +3,7 @@ import { StyleSheet, View, Linking } from 'react-native';
 import { Text, Button, ActivityIndicator } from 'react-native-paper';
 import {
   Camera,
-  useCameraDevice,
+  CameraDevice,
   useCodeScanner,
   useCameraPermission,
 } from 'react-native-vision-camera';
@@ -17,17 +17,26 @@ export default function BarcodeScannerScreen() {
   const navigation = useNavigation<Nav>();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  const [device, setDevice] = useState<CameraDevice | undefined>();
+  const [deviceSearched, setDeviceSearched] = useState(false);
   const isScanning = useRef(false);
   const [isActive, setIsActive] = useState(true);
-  // requestPermission が完了したかを追跡（未決定 vs 拒否を区別するため）
   const [permissionResolved, setPermissionResolved] = useState(false);
 
   useEffect(() => {
     requestPermission().then(() => setPermissionResolved(true));
-    // マウント時に一度だけ呼ぶ。依存配列を空にして再呼び出しを防ぐ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // パーミッション取得後にデバイスリストを明示的に取得
+  useEffect(() => {
+    if (!hasPermission) return;
+    Camera.getAvailableCameraDevices().then((devices) => {
+      const back = devices.find((d) => d.position === 'back');
+      setDevice(back);
+      setDeviceSearched(true);
+    });
+  }, [hasPermission]);
 
   // 画面を離れたときスキャンを止め、戻ってきたときロックを解除
   useEffect(() => {
@@ -93,9 +102,20 @@ export default function BarcodeScannerScreen() {
   }
 
   if (!device) {
+    if (!deviceSearched) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+          <Text style={styles.message}>カメラを起動中...</Text>
+        </View>
+      );
+    }
     return (
       <View style={styles.center}>
         <Text style={styles.message}>カメラが見つかりませんでした。</Text>
+        <Button mode="text" onPress={() => navigation.goBack()} style={{ marginTop: 8 }}>
+          戻る
+        </Button>
       </View>
     );
   }
