@@ -35,7 +35,8 @@
           "cameraPermissionText": "バーコードを読み取るためにカメラを使用します。",
           "enableCodeScanner": true
         }
-      ]
+      ],
+      "expo-font"
     ],
     "web": {
       "favicon": "./assets/favicon.png"
