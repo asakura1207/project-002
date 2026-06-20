@@ -1,8 +1,7 @@
 import { RakutenProduct } from '../types';
 
-const RAKUTEN_APP_ID = 'f6dfd0c0-0ab3-480a-aaa9-bf79c575b7e0';
-const RAKUTEN_OLD_ENDPOINT =
-  'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601';
+const YAHOO_APP_ID = '32MpLkyxT8';
+const YAHOO_ENDPOINT = 'https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch';
 const OFF_ENDPOINT = 'https://world.openfoodfacts.org/api/v0/product';
 
 async function searchOpenFoodFacts(janCode: string): Promise<RakutenProduct | null> {
@@ -26,33 +25,30 @@ async function searchOpenFoodFacts(janCode: string): Promise<RakutenProduct | nu
   };
 }
 
-async function searchRakuten(janCode: string): Promise<RakutenProduct | null> {
+async function searchYahoo(janCode: string): Promise<RakutenProduct | null> {
   const params = new URLSearchParams({
-    applicationId: RAKUTEN_APP_ID,
-    keyword: janCode,
-    hits: '1',
-    format: 'json',
+    appid: YAHOO_APP_ID,
+    jan_code: janCode,
+    results: '1',
   });
 
-  const res = await fetch(`${RAKUTEN_OLD_ENDPOINT}?${params.toString()}`);
+  const res = await fetch(`${YAHOO_ENDPOINT}?${params.toString()}`);
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.warn('Rakuten API error:', res.status, body);
+    console.warn('Yahoo API error:', res.status, body);
     return null;
   }
 
   const data = await res.json();
-  if (!data.Items || data.Items.length === 0) return null;
+  const hits = data.hits;
+  if (!hits || hits.length === 0) return null;
 
-  const item = data.Items[0].Item;
-  const imageUrl =
-    item.mediumImageUrls?.length > 0 ? item.mediumImageUrls[0].imageUrl : '';
-
+  const item = hits[0];
   return {
-    name: item.itemName ?? '',
-    image_url: imageUrl,
-    maker: item.shopName ?? '',
-    item_url: item.itemUrl ?? '',
+    name: item.name ?? '',
+    image_url: item.image?.small ?? '',
+    maker: item.brand?.name ?? item.seller?.name ?? '',
+    item_url: item.url ?? '',
   };
 }
 
@@ -61,9 +57,9 @@ export async function searchByJanCode(janCode: string): Promise<RakutenProduct |
   const offResult = await searchOpenFoodFacts(janCode);
   if (offResult) return offResult;
 
-  // 見つからなければ旧楽天APIで検索
-  const rakutenResult = await searchRakuten(janCode);
-  if (rakutenResult) return rakutenResult;
+  // 見つからなければYahoo!ショッピングで検索
+  const yahooResult = await searchYahoo(janCode);
+  if (yahooResult) return yahooResult;
 
   return null;
 }
