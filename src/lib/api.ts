@@ -1,19 +1,13 @@
 import { RakutenProduct } from '../types';
 
-// 楽天デベロッパーサイト https://webservice.rakuten.co.jp/ でアプリIDを取得してください
-const RAKUTEN_APP_ID = 'f6dfd0c0-0ab3-480a-aaa9-bf79c575b7e0';
-
-const ENDPOINT = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601';
+const ENDPOINT = 'https://world.openfoodfacts.org/api/v0/product';
 
 export async function searchByJanCode(janCode: string): Promise<RakutenProduct | null> {
-  const params = new URLSearchParams({
-    applicationId: RAKUTEN_APP_ID,
-    keyword: janCode,
-    hits: '1',
-    format: 'json',
+  const response = await fetch(`${ENDPOINT}/${janCode}.json`, {
+    headers: {
+      'User-Agent': 'NominomotoZukan/1.0 (asakura104783@gmail.com)',
+    },
   });
-
-  const response = await fetch(`${ENDPOINT}?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
@@ -21,20 +15,23 @@ export async function searchByJanCode(janCode: string): Promise<RakutenProduct |
 
   const data = await response.json();
 
-  if (!data.Items || data.Items.length === 0) {
+  if (data.status === 0 || !data.product) {
     return null;
   }
 
-  const item = data.Items[0].Item;
-  const imageUrl =
-    item.mediumImageUrls && item.mediumImageUrls.length > 0
-      ? item.mediumImageUrls[0].imageUrl
-      : '';
+  const p = data.product;
+  const name = p.product_name_ja || p.product_name || '';
+  const imageUrl = p.image_front_url || p.image_url || '';
+  const maker = p.brands || '';
+
+  if (!name) {
+    return null;
+  }
 
   return {
-    name: item.itemName ?? '',
+    name,
     image_url: imageUrl,
-    maker: item.shopName ?? '',
-    item_url: item.itemUrl ?? '',
+    maker,
+    item_url: '',
   };
 }
