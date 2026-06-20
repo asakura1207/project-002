@@ -19,12 +19,13 @@ export default function BarcodeScannerScreen() {
   const navigation = useNavigation<Nav>();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
+  const deviceFromHook = useCameraDevice('back');
+  const [deviceFromPoll, setDeviceFromPoll] = useState<import('react-native-vision-camera').CameraDevice | undefined>();
+  const device = deviceFromHook ?? deviceFromPoll;
   const isScanning = useRef(false);
   const [isActive, setIsActive] = useState(true);
   const [permissionResolved, setPermissionResolved] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
-  // パーミッション取得後にデバイスが見つかるまで最大5秒待つ
   const [deviceTimeout, setDeviceTimeout] = useState(false);
 
   useEffect(() => {
@@ -32,11 +33,28 @@ export default function BarcodeScannerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // パーミッション取得後、デバイスが見つかるまで0.5秒ごとにポーリング
   useEffect(() => {
     if (!hasPermission || device) return;
-    setDeviceTimeout(false);
-    const timer = setTimeout(() => setDeviceTimeout(true), 5000);
-    return () => clearTimeout(timer);
+    let stopped = false;
+    let attempts = 0;
+
+    const poll = () => {
+      if (stopped) return;
+      const devices = Camera.getAvailableCameraDevices();
+      const back = devices.find((d) => d.position === 'back');
+      if (back) {
+        setDeviceFromPoll(back);
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(poll, 500);
+      } else {
+        setDeviceTimeout(true);
+      }
+    };
+
+    poll();
+    return () => { stopped = true; };
   }, [hasPermission, device]);
 
   useEffect(() => {
