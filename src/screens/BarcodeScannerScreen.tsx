@@ -13,7 +13,7 @@ import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'BarcodeScanner'>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function BarcodeScannerScreen() {
   const navigation = useNavigation<Nav>();
@@ -29,7 +29,14 @@ export default function BarcodeScannerScreen() {
   const [deviceTimeout, setDeviceTimeout] = useState(false);
 
   useEffect(() => {
-    requestPermission().then(() => setPermissionResolved(true));
+    requestPermission().then((granted) => {
+      if (granted) {
+        // 権限付与直後はVisionCameraがカメラを検出できないため画面をリセット
+        navigation.replace('BarcodeScanner');
+      } else {
+        setPermissionResolved(true);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
