@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Linking, Alert } from 'react-native';
+import { StyleSheet, View, Linking, Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Text, Button, ActivityIndicator, IconButton } from 'react-native-paper';
 import {
   Camera,
@@ -29,20 +29,27 @@ export default function BarcodeScannerScreen() {
   const [deviceTimeout, setDeviceTimeout] = useState(false);
 
   useEffect(() => {
-    if (hasPermission) {
-      // すでに権限あり（replace後の再マウント）→ そのまま進む
-      setPermissionResolved(true);
-      return;
-    }
-    // 権限なし → ダイアログを出す
-    requestPermission().then((granted) => {
+    const setup = async () => {
+      // フックの初期値は不正確なことがあるため、OSに直接確認する
+      const alreadyGranted =
+        Platform.OS === 'android'
+          ? await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA)
+          : hasPermission;
+
+      if (alreadyGranted) {
+        setPermissionResolved(true);
+        return;
+      }
+
+      const granted = await requestPermission();
       if (granted) {
         // 新規付与 → VisionCameraを再初期化するため画面を作り直す
         navigation.replace('BarcodeScanner');
       } else {
         setPermissionResolved(true);
       }
-    });
+    };
+    setup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
