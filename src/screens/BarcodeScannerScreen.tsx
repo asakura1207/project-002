@@ -29,9 +29,15 @@ export default function BarcodeScannerScreen() {
   const [deviceTimeout, setDeviceTimeout] = useState(false);
 
   useEffect(() => {
+    if (hasPermission) {
+      // すでに権限あり（replace後の再マウント）→ そのまま進む
+      setPermissionResolved(true);
+      return;
+    }
+    // 権限なし → ダイアログを出す
     requestPermission().then((granted) => {
       if (granted) {
-        // 権限付与直後はVisionCameraがカメラを検出できないため画面をリセット
+        // 新規付与 → VisionCameraを再初期化するため画面を作り直す
         navigation.replace('BarcodeScanner');
       } else {
         setPermissionResolved(true);
